@@ -40,4 +40,8 @@ public class CrimeLab {
     public void addCrime(Crime c) {
         mCrimes.add(c);
     }
+
+    public boolean removeCrime(Crime c) {
+        return (mCrimes.remove(c));
+    }
 }

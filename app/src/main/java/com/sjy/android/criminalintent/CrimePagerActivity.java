@@ -53,8 +53,5 @@ public class CrimePagerActivity extends AppCompatActivity {
                 break;
             }
         }
-
-
-
     }
 }
