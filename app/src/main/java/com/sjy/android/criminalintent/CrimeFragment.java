@@ -48,6 +48,10 @@ public class CrimeFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        /*
+         * Receiving menu callback from the activity from the os
+         * with the help of the fragment manager
+         **/
         setHasOptionsMenu(true);
 
         UUID crimeId = (UUID) getArguments().getSerializable(ARG_CRIME_ID);
