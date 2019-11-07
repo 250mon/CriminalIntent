@@ -6,6 +6,7 @@ import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -134,6 +135,7 @@ public class CrimeListFragment extends Fragment {
             mAdapter = new CrimeAdapter(crimes);
             mCrimeRecyclerView.setAdapter(mAdapter);
         } else {
+            mAdapter.setCrimes(crimes);
             mAdapter.notifyDataSetChanged();
         }
 
@@ -157,6 +159,9 @@ public class CrimeListFragment extends Fragment {
         updateSubtitle();
     }
 
+    /*
+     * createNewCrime called by pressing add_crime button of Toolbar or Empty view
+     */
     private void createNewCrime() {
         Crime crime = new Crime();
         CrimeLab.get(getActivity()).addCrime(crime);
@@ -219,8 +224,6 @@ public class CrimeListFragment extends Fragment {
         // called by the RecyclerView when it needs a new View to display an item.
         public CrimeHolder onCreateViewHolder(ViewGroup parent, int ViewType) {
             LayoutInflater layoutInflater = LayoutInflater.from(getActivity());
-            // simple_list_item_1: This layout contains a single TextView, styled to look nice in a list.
-            //View view = layoutInflater.inflate(android.R.layout.simple_list_item_1, parent, false);
             View view = layoutInflater.inflate(R.layout.list_item_crime, parent, false);
             return new CrimeHolder(view);
         }
@@ -235,6 +238,10 @@ public class CrimeListFragment extends Fragment {
         @Override
         public int getItemCount() {
             return mCrimes.size();
+        }
+
+        public void setCrimes(List<Crime> crimes) {
+            mCrimes = crimes;
         }
     }
 
