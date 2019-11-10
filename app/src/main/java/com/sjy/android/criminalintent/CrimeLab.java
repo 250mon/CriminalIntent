@@ -23,32 +23,6 @@ public class CrimeLab {
     private Context mContext;
     private SQLiteDatabase mDatabase;
 
-    private static ContentValues getContentValues(Crime crime) {
-        ContentValues values = new ContentValues();
-
-        values.put(CrimeTable.Cols.UUID, crime.getId().toString());
-        values.put(CrimeTable.Cols.TITLE, crime.getTitle());
-        values.put(CrimeTable.Cols.DATE, crime.getDate().toString());
-        values.put(CrimeTable.Cols.SOLVED, crime.isSolved() ? 1 : 0);
-        values.put(CrimeTable.Cols.SUSPECT, crime.getSuspect());
-
-        return values;
-    }
-
-    private CrimeCursorWrapper queryCrimes(String whereClause, String[] whereArgs) {
-        Cursor cursor = mDatabase.query(
-                CrimeTable.NAME,
-                null, // Columns - null selects all columns
-                whereClause,
-                whereArgs,
-                null, // groupBy
-                null,  // having
-                null  // orderBy
-        );
-
-        return new CrimeCursorWrapper(cursor);
-    }
-
 
     private CrimeLab(Context context) {
         mContext = context.getApplicationContext();
@@ -114,4 +88,32 @@ public class CrimeLab {
                 CrimeTable.Cols.UUID + " = ?",
                 new String[] { uuidString });
     }
+
+    private static ContentValues getContentValues(Crime crime) {
+        ContentValues values = new ContentValues();
+
+        values.put(CrimeTable.Cols.UUID, crime.getId().toString());
+        values.put(CrimeTable.Cols.TITLE, crime.getTitle());
+        values.put(CrimeTable.Cols.DATE, crime.getDate().toString());
+        values.put(CrimeTable.Cols.SOLVED, crime.isSolved() ? 1 : 0);
+        values.put(CrimeTable.Cols.SUSPECT, crime.getSuspect());
+        values.put(CrimeTable.Cols.PHONENUMBER, crime.getPhoneNumber());
+
+        return values;
+    }
+
+    private CrimeCursorWrapper queryCrimes(String whereClause, String[] whereArgs) {
+        Cursor cursor = mDatabase.query(
+                CrimeTable.NAME,
+                null, // Columns - null selects all columns
+                whereClause,
+                whereArgs,
+                null, // groupBy
+                null,  // having
+                null  // orderBy
+        );
+
+        return new CrimeCursorWrapper(cursor);
+    }
+
 }
