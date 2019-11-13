@@ -2,17 +2,20 @@ package com.sjy.android.criminalintent;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.ShareCompat.IntentBuilder;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
@@ -26,8 +29,14 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.UUID;
 
@@ -41,15 +50,19 @@ public class CrimeFragment extends Fragment {
     private static final String KEY_NUMBER = "phone_number";
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
-    private static final int PERMISSION_REQUEST_CODE = 2;
+    private static final int REQUEST_PHOTO = 2;
+    private static final int PERMISSION_REQUEST_CODE = 99;
 
     private Crime mCrime;
+    private File mPhotoFile;
     private EditText mTitleField;
     private Button mDateButton;
     private CheckBox mSolvedCheckBox;
     private Button mSuspectButton;
     private Button mReportButton;
     private Button mCallButton;
+    private ImageButton mPhotoButton;
+    private ImageView mPhotoView;
 
     // Why not a constructor with crimeId argument?
     public static CrimeFragment newInstance(UUID crimeId) {
@@ -71,6 +84,9 @@ public class CrimeFragment extends Fragment {
         setHasOptionsMenu(true);
         UUID crimeId = (UUID) getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getActivity()).getCrime(crimeId);
+        mPhotoFile = CrimeLab.get(getActivity()).getPhotoFile(mCrime);
+
+        /* Get a permission to access the contacts */
         if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             String[] permissions = new String[]{Manifest.permission.READ_CONTACTS};
             requestPermissions(permissions, PERMISSION_REQUEST_CODE);
@@ -97,7 +113,6 @@ public class CrimeFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
-
         CrimeLab.get(getActivity()).updateCrime(mCrime);
     }
 
@@ -179,7 +194,7 @@ public class CrimeFragment extends Fragment {
         if (mCrime.getSuspect() != null) {
             mSuspectButton.setText(mCrime.getSuspect());
         }
-        //Guarding against no contact app
+        // Guarding against no contact app
         PackageManager packageManager = getActivity().getPackageManager();
         if (packageManager.resolveActivity(pickContact, PackageManager.MATCH_DEFAULT_ONLY) == null) {
             mSuspectButton.setEnabled(false);
@@ -194,9 +209,35 @@ public class CrimeFragment extends Fragment {
                 startActivity(i);
             }
         });
-        if(mCrime.getPhoneNumber() == null) {
+        if (mCrime.getPhoneNumber() == null) {
             mCallButton.setEnabled(false);
         }
+
+        mPhotoButton = (ImageButton) v.findViewById(R.id.crime_camera);
+        final Intent captureImage = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        // check if there is an external storage to put images in and the camera app is available
+        boolean canTakePhoto = mPhotoFile != null && captureImage.resolveActivity(packageManager) != null;
+        mPhotoButton.setEnabled(canTakePhoto);
+        if (canTakePhoto) {
+            Uri uri = null;
+            if (Build.VERSION.SDK_INT >= 24) {
+                String authority = getActivity().getApplicationContext().getPackageName() + ".fileprovider";
+                uri = FileProvider.getUriForFile(getActivity(), authority, mPhotoFile);
+                captureImage.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            } else {
+                uri = Uri.fromFile(mPhotoFile);
+            }
+            captureImage.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+        }
+        mPhotoButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivityForResult(captureImage, REQUEST_PHOTO);
+            }
+        });
+
+        mPhotoView = (ImageView) v.findViewById(R.id.crime_photo);
+        updatePhotoView();
 
         return v;
     }
@@ -231,20 +272,20 @@ public class CrimeFragment extends Fragment {
         if (resultCode != Activity.RESULT_OK) {
             return;
         }
-        if (requestCode == REQUEST_DATE) {
-            Date date = (Date) data.getSerializableExtra(DatePickerFragment.EXTRA_DATE);
+        if (requestCode == REQUEST_DATE && data != null) {
+            Instant date = (Instant) data.getSerializableExtra(DatePickerFragment.EXTRA_DATE);
             mCrime.setDate(date);
             updateDate();
         } else if (requestCode == REQUEST_CONTACT && data != null) {
             Uri contactUri = data.getData();
             // Specify which fields you want your query to return
             // values for.
-            String[] queryFields = new String[] {
+            String[] queryFields = new String[]{
                     ContactsContract.Contacts._ID,
                     ContactsContract.Contacts.DISPLAY_NAME,
                     ContactsContract.Contacts.HAS_PHONE_NUMBER
             };
-        // Perform your query - the contactUri is like a "where"
+            // Perform your query - the contactUri is like a "where"
             // clause here
             Cursor c = getActivity().getContentResolver().query(
                     contactUri,
@@ -266,7 +307,7 @@ public class CrimeFragment extends Fragment {
                 String suspect = c.getString(1);
                 mCrime.setSuspect(suspect);
                 mSuspectButton.setText(suspect);
-                if(Integer.parseInt(c.getString(2)) > 0 ) {
+                if (Integer.parseInt(c.getString(2)) > 0) {
                     mCallButton.setEnabled(true);
                     mCrime.setPhoneNumber(retrievePhoneNumber(contactId));
                 } else {
@@ -275,6 +316,8 @@ public class CrimeFragment extends Fragment {
             } finally {
                 c.close();
             }
+        } else if (requestCode == REQUEST_PHOTO) {
+            updatePhotoView();
         }
     }
 
@@ -284,12 +327,12 @@ public class CrimeFragment extends Fragment {
                 contactUri,
                 null,
                 ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
-                new String[]{contactId} ,
+                new String[]{contactId},
                 null
         );
 
         try {
-            if(crPhones.getCount() == 0) {
+            if (crPhones.getCount() == 0) {
                 return null;
             }
             crPhones.moveToFirst();
@@ -312,8 +355,10 @@ public class CrimeFragment extends Fragment {
             solvedString = getString(R.string.crime_report_unsolved);
         }
 
-        String dateFormat = "EEE, MMM dd";
-        String dateString = DateFormat.format(dateFormat, mCrime.getDate()).toString();
+        /*String dateFormat = "EEE, MMM dd";
+        String dateString = DateFormat.format(dateFormat, mCrime.getDate()).toString();*/
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEE-MMM-dd").withZone(ZoneId.systemDefault());
+        String dateString = formatter.format(mCrime.getDate());
 
         String suspect = mCrime.getSuspect();
         if (suspect == null) {
@@ -326,4 +371,14 @@ public class CrimeFragment extends Fragment {
 
         return report;
     }
+
+    private void updatePhotoView() {
+        if (mPhotoFile == null ||!mPhotoFile.exists()) {
+            mPhotoView.setImageDrawable(null);
+        } else{
+            Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), getActivity());
+            mPhotoView.setImageBitmap(bitmap);
+        }
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.sjy.android.criminalintent;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
@@ -10,7 +11,8 @@ import java.util.UUID;
 public class Crime {
     private UUID mId;
     private String mTitle;
-    private Date mDate;
+    //private Date mDate;
+    private Instant mDate;
     private boolean mSolved;
     private String mSuspect;
     private String mPhoneNumber;
@@ -23,7 +25,7 @@ public class Crime {
 
     public Crime(UUID id) {
         mId = id;
-        mDate = new Date();
+        mDate = Instant.now();
     }
 
     public UUID getId() {
@@ -38,11 +40,11 @@ public class Crime {
         mTitle = title;
     }
 
-    public Date getDate() {
+    public Instant getDate() {
         return mDate;
     }
 
-    public void setDate(Date date) {
+    public void setDate(Instant date) {
         mDate = date;
     }
 
@@ -58,16 +60,14 @@ public class Crime {
         return mSuspect;
     }
 
-    public void setSuspect(String suspect) {
-        mSuspect = suspect;
-    }
+    public void setSuspect(String suspect) { mSuspect = suspect; }
 
-    public String getPhoneNumber() {
-        return mPhoneNumber;
-    }
+    public String getPhoneNumber() { return mPhoneNumber; }
 
-    public void setPhoneNumber(String mPhoneNumber) {
-        this.mPhoneNumber = mPhoneNumber;
+    public void setPhoneNumber(String phoneNumber) { mPhoneNumber = phoneNumber; }
+
+    public String getPhotoFileName() {
+        return "IMG_" + getId().toString() + ".jpg";
     }
 
 }
