@@ -1,5 +1,6 @@
 package com.sjy.android.criminalintent;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -19,12 +20,28 @@ import android.widget.TextView;
 
 import java.util.List;
 
+import static com.sjy.android.criminalintent.R.layout.fragment_crime_list;
+
 public class CrimeListFragment extends Fragment {
     private static final String SAVED_SUBTITLE_VISIBLE = "subtitle";
     private RecyclerView mCrimeRecyclerView;
     private View mEmptyListView;
     private CrimeAdapter mAdapter;
     private boolean mSubtitleVisible;
+    private Callbacks mCallbacks;
+
+    /*
+     * Required interface for hosting activity
+     */
+    public interface Callbacks {
+        void onCrimeSelected(Crime crime);
+    }
+
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        mCallbacks = (Callbacks) context;
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -37,8 +54,14 @@ public class CrimeListFragment extends Fragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        updateUI();
+    }
+
+    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_crime_list, container, false);
+        View view = inflater.inflate(fragment_crime_list, container, false);
 
         /*
          * RecyclerView is a subclass of ViewGroup.
@@ -50,9 +73,9 @@ public class CrimeListFragment extends Fragment {
         mEmptyListView = (View) view.findViewById(R.id.empty_list_view);
 
         /*
-        * RecyclerView does not do the job of positioning items on the screen itself.
-        * It delegates that out to the LayoutManager.
-        * */
+         * RecyclerView does not do the job of positioning items on the screen itself.
+         * It delegates that out to the LayoutManager.
+         * */
         mCrimeRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
 
         /*
@@ -65,18 +88,6 @@ public class CrimeListFragment extends Fragment {
         updateUI();
 
         return view;
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        updateUI();
-    }
-
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putBoolean(SAVED_SUBTITLE_VISIBLE, mSubtitleVisible);
     }
 
     /*
@@ -114,6 +125,18 @@ public class CrimeListFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(SAVED_SUBTITLE_VISIBLE, mSubtitleVisible);
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mCallbacks = null;
+    }
+
     private void updateSubtitle() {
         CrimeLab crimeLab = CrimeLab.get(getActivity());
         int crimeCount = crimeLab.getCrimes().size();
@@ -127,11 +150,11 @@ public class CrimeListFragment extends Fragment {
         activity.getSupportActionBar().setSubtitle(subtitle);
     }
 
-    private void updateUI() {
+    public void updateUI() {
         CrimeLab crimeLab = CrimeLab.get(getActivity());
         List<Crime> crimes = crimeLab.getCrimes();
 
-        if(mAdapter == null) {
+        if (mAdapter == null) {
             mAdapter = new CrimeAdapter(crimes);
             mCrimeRecyclerView.setAdapter(mAdapter);
         } else {
@@ -139,14 +162,16 @@ public class CrimeListFragment extends Fragment {
             mAdapter.notifyDataSetChanged();
         }
 
-        if(mAdapter.getItemCount() == 0) {
+        // If the device is a phone and no crime is in the list, emptyListView is displayed
+        if (getActivity().findViewById(R.id.detail_fragment_container) == null &&
+                mAdapter.getItemCount() == 0) {
             mCrimeRecyclerView.setVisibility(View.GONE);
             mEmptyListView.setVisibility(View.VISIBLE);
             ImageButton addButton = (ImageButton) mEmptyListView.findViewById(R.id.add_crime_image_button);
             addButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                   createNewCrime();
+                    createNewCrime();
                 }
             });
 
@@ -165,12 +190,15 @@ public class CrimeListFragment extends Fragment {
     private void createNewCrime() {
         Crime crime = new Crime();
         CrimeLab.get(getActivity()).addCrime(crime);
-        Intent intent = CrimePagerActivity.newIntent(getActivity(), crime.getId());
-        startActivity(intent);
+        //Intent intent = CrimePagerActivity.newIntent(getActivity(), crime.getId());
+        //startActivity(intent);
+        updateUI();
+        mCallbacks.onCrimeSelected(crime);
     }
+
     /*
      * ViewHolder holds on to a View
-    * */
+     * */
     private class CrimeHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         private Crime mCrime;
         private TextView mTitleTextView;
@@ -195,24 +223,25 @@ public class CrimeListFragment extends Fragment {
 
         @Override
         public void onClick(View v) {
-            Intent intent = CrimePagerActivity.newIntent(getActivity(), mCrime.getId());
-            startActivity(intent);
+            //Intent intent = CrimePagerActivity.newIntent(getActivity(), mCrime.getId());
+            //startActivity(intent);
+            mCallbacks.onCrimeSelected(mCrime);
         }
     }
 
     /*
-    * The RecyclerView will communicate with this adapter
-    * when a ViewHolder needs to be created or connected with a Crime object.
-    *
-    * The RecyclerView itself will not know anything about the Crime object,
-    * but the Adapter will know all of Crimes intimate and personal details.
-    *
-    * Simply, it is a controller object that sits between the RecyclerView and the data set
-    *
-    * Responsibilities:
-    *  1. creating necessary ViewHolders
-    *  2. binding ViewHolders to data from the model layer
-    * */
+     * The RecyclerView will communicate with this adapter
+     * when a ViewHolder needs to be created or connected with a Crime object.
+     *
+     * The RecyclerView itself will not know anything about the Crime object,
+     * but the Adapter will know all of Crimes intimate and personal details.
+     *
+     * Simply, it is a controller object that sits between the RecyclerView and the data set
+     *
+     * Responsibilities:
+     *  1. creating necessary ViewHolders
+     *  2. binding ViewHolders to data from the model layer
+     * */
     private class CrimeAdapter extends RecyclerView.Adapter<CrimeHolder> {
         private List<Crime> mCrimes;
 

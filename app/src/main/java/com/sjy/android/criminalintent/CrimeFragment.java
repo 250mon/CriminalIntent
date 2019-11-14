@@ -2,6 +2,7 @@ package com.sjy.android.criminalintent;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -16,6 +17,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.ShareCompat.IntentBuilder;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
+import android.telecom.Call;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
@@ -47,7 +49,6 @@ import java.util.UUID;
 public class CrimeFragment extends Fragment {
     private static final String ARG_CRIME_ID = "crime_id";
     private static final String DIALOG_DATE = "DialogDate";
-    private static final String KEY_NUMBER = "phone_number";
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
     private static final int REQUEST_PHOTO = 2;
@@ -63,6 +64,14 @@ public class CrimeFragment extends Fragment {
     private Button mCallButton;
     private ImageButton mPhotoButton;
     private ImageView mPhotoView;
+    private Callbacks mCallbacks;
+
+    /*
+     * Required interface for hosting activity
+     */
+    public interface Callbacks {
+        void onCrimeUpdated(Crime crime);
+    }
 
     // Why not a constructor with crimeId argument?
     public static CrimeFragment newInstance(UUID crimeId) {
@@ -111,12 +120,6 @@ public class CrimeFragment extends Fragment {
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        CrimeLab.get(getActivity()).updateCrime(mCrime);
-    }
-
-    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_crime, container, false);
 
@@ -131,6 +134,7 @@ public class CrimeFragment extends Fragment {
             @Override
             public void onTextChanged(CharSequence charSequence, int start, int before, int count) {
                 mCrime.setTitle(charSequence.toString());
+                updateCrime();
             }
 
             @Override
@@ -159,6 +163,7 @@ public class CrimeFragment extends Fragment {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 // Set the crime's solved property
                 mCrime.setSolved(isChecked);
+                updateCrime();
             }
         });
 
@@ -242,6 +247,12 @@ public class CrimeFragment extends Fragment {
         return v;
     }
 
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        mCallbacks = (Callbacks) context;
+    }
+
     /*
      * Inflate a menu resource
      * - delete menu
@@ -275,6 +286,7 @@ public class CrimeFragment extends Fragment {
         if (requestCode == REQUEST_DATE && data != null) {
             Instant date = (Instant) data.getSerializableExtra(DatePickerFragment.EXTRA_DATE);
             mCrime.setDate(date);
+            updateCrime();
             updateDate();
         } else if (requestCode == REQUEST_CONTACT && data != null) {
             Uri contactUri = data.getData();
@@ -306,6 +318,7 @@ public class CrimeFragment extends Fragment {
                 String contactId = c.getString(0);
                 String suspect = c.getString(1);
                 mCrime.setSuspect(suspect);
+                updateCrime();
                 mSuspectButton.setText(suspect);
                 if (Integer.parseInt(c.getString(2)) > 0) {
                     mCallButton.setEnabled(true);
@@ -317,8 +330,26 @@ public class CrimeFragment extends Fragment {
                 c.close();
             }
         } else if (requestCode == REQUEST_PHOTO) {
+            updateCrime();
             updatePhotoView();
         }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        CrimeLab.get(getActivity()).updateCrime(mCrime);
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mCallbacks = null;
+    }
+
+    private void updateCrime() {
+        CrimeLab.get(getActivity()).updateCrime(mCrime);
+        mCallbacks.onCrimeUpdated(mCrime);
     }
 
     private String retrievePhoneNumber(String contactId) {
@@ -373,9 +404,9 @@ public class CrimeFragment extends Fragment {
     }
 
     private void updatePhotoView() {
-        if (mPhotoFile == null ||!mPhotoFile.exists()) {
+        if (mPhotoFile == null || !mPhotoFile.exists()) {
             mPhotoView.setImageDrawable(null);
-        } else{
+        } else {
             Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), getActivity());
             mPhotoView.setImageBitmap(bitmap);
         }
