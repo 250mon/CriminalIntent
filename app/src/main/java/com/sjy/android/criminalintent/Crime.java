@@ -1,7 +1,6 @@
 package com.sjy.android.criminalintent;
 
 import java.time.Instant;
-import java.util.Date;
 import java.util.UUID;
 
 /**
@@ -11,7 +10,6 @@ import java.util.UUID;
 public class Crime {
     private UUID mId;
     private String mTitle;
-    //private Date mDate;
     private Instant mDate;
     private boolean mSolved;
     private String mSuspect;
